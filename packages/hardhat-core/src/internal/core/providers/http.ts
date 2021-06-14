@@ -152,6 +152,7 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
       });
 
       if (this._isRateLimitResponse(response)) {
+        console.log("Rate limited request");
         // Consume the response stream and discard its result
         // See: https://github.com/node-fetch/node-fetch/issues/83
         const _discarded = await response.text();
@@ -237,6 +238,8 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
     if (isNaN(parsed)) {
       return undefined;
     }
+
+    console.log("Retry-After", parsed);
 
     return parsed;
   }
