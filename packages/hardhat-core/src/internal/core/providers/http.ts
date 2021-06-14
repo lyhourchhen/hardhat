@@ -141,18 +141,13 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
     const start = new Date();
 
     try {
-      const timeout =
-        process.env.DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI !== undefined
-          ? 0
-          : this._timeout;
-
       const response = await got(this._url, {
         method: "POST",
         retry: {
           limit: MAX_RETRY_AWAIT_SECONDS,
           maxRetryAfter: MAX_RETRY_AWAIT_SECONDS,
         },
-        timeout,
+        timeout: this._timeout,
         json: request,
         headers: {
           "Content-Type": "application/json",
