@@ -1,5 +1,4 @@
 import { EventEmitter } from "events";
-import type { Response } from "node-fetch";
 
 import { EIP1193Provider, RequestArguments } from "../../../types";
 import {
@@ -134,7 +133,7 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
     request: JsonRpcRequest | JsonRpcRequest[],
     retryNumber = 0
   ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
-    const { default: fetch } = await import("node-fetch");
+    const { default: got } = await import("got");
 
     const requests = Array.isArray(request) ? request : [request];
     const methods = requests.map((r) => r.method);
@@ -142,42 +141,26 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
     const start = new Date();
 
     try {
-      const response = await fetch(this._url, {
+      const timeout =
+        process.env.DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI !== undefined
+          ? 0
+          : this._timeout;
+
+      const response = await got(this._url, {
         method: "POST",
-        body: JSON.stringify(request),
-        redirect: "follow",
-        timeout:
-          process.env.DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI !== undefined
-            ? 0
-            : this._timeout,
+        retry: {
+          limit: MAX_RETRY_AWAIT_SECONDS,
+          maxRetryAfter: MAX_RETRY_AWAIT_SECONDS,
+        },
+        timeout,
+        json: request,
         headers: {
           "Content-Type": "application/json",
           ...this._extraHeaders,
         },
-      });
+      }).text();
 
-      if (this._isRateLimitResponse(response)) {
-        console.log("Rate limited request");
-        // Consume the response stream and discard its result
-        // See: https://github.com/node-fetch/node-fetch/issues/83
-        const _discarded = await response.text();
-
-        const seconds = this._getRetryAfterSeconds(response);
-        if (seconds !== undefined && this._shouldRetry(retryNumber, seconds)) {
-          console.log("Retrying");
-          return await this._retry(request, seconds, retryNumber);
-        }
-
-        const url = new URL(this._url);
-
-        // tslint:disable-next-line only-hardhat-error
-        throw new ProviderError(
-          `Too Many Requests error received from ${url.hostname}`,
-          -32005 // Limit exceeded according to EIP1474
-        );
-      }
-
-      const result = parseJsonResponse(await response.text());
+      const result = parseJsonResponse(response);
       const end = new Date();
       const duration = end.getTime() - start.getTime();
       if (duration > 1000) {
@@ -195,6 +178,14 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
           `Failed request ${ids} - methods ${methods} - duration ${duration}ms`
         );
       }
+
+      // TODO: Handle got errors
+
+      // // tslint:disable-next-line only-hardhat-error
+      // throw new ProviderError(
+      //   `Too Many Requests error received from ${url.hostname}`,
+      //   -32005 // Limit exceeded according to EIP1474
+      // );
 
       if (error.code === "ECONNREFUSED") {
         throw new HardhatError(
