@@ -16,7 +16,7 @@ export type GlobalWithHardhatContext = NodeJS.Global & {
 
 export class HardhatContext {
   public static isCreated(): boolean {
-    const globalWithHardhatContext = global as GlobalWithHardhatContext;
+    const globalWithHardhatContext = (global as unknown) as GlobalWithHardhatContext;
     return globalWithHardhatContext.__hardhatContext !== undefined;
   }
 
@@ -24,14 +24,14 @@ export class HardhatContext {
     if (this.isCreated()) {
       throw new HardhatError(ERRORS.GENERAL.CONTEXT_ALREADY_CREATED);
     }
-    const globalWithHardhatContext = global as GlobalWithHardhatContext;
+    const globalWithHardhatContext = (global as unknown) as GlobalWithHardhatContext;
     const ctx = new HardhatContext();
     globalWithHardhatContext.__hardhatContext = ctx;
     return ctx;
   }
 
   public static getHardhatContext(): HardhatContext {
-    const globalWithHardhatContext = global as GlobalWithHardhatContext;
+    const globalWithHardhatContext = (global as unknown) as GlobalWithHardhatContext;
     const ctx = globalWithHardhatContext.__hardhatContext;
     if (ctx === undefined) {
       throw new HardhatError(ERRORS.GENERAL.CONTEXT_NOT_CREATED);
