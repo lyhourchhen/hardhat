@@ -136,6 +136,11 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
   ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
     const { default: fetch } = await import("node-fetch");
 
+    const requests = Array.isArray(request) ? request : [request];
+    const methods = requests.map((r) => r.method);
+    const ids = requests.map((r) => r.id);
+    const start = new Date();
+
     try {
       const response = await fetch(this._url, {
         method: "POST",
@@ -159,6 +164,7 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
 
         const seconds = this._getRetryAfterSeconds(response);
         if (seconds !== undefined && this._shouldRetry(retryNumber, seconds)) {
+          console.log("Retrying");
           return await this._retry(request, seconds, retryNumber);
         }
 
@@ -171,8 +177,25 @@ export class HttpProvider extends EventEmitter implements EIP1193Provider {
         );
       }
 
-      return parseJsonResponse(await response.text());
+      const result = parseJsonResponse(await response.text());
+      const end = new Date();
+      const duration = end.getTime() - start.getTime();
+      if (duration > 1000) {
+        console.log(
+          `Request ${ids} - methods ${methods} - duration ${duration}ms`
+        );
+      }
+
+      return result;
     } catch (error) {
+      const end = new Date();
+      const duration = end.getTime() - start.getTime();
+      if (duration > 1000) {
+        console.log(
+          `Failed request ${ids} - methods ${methods} - duration ${duration}ms`
+        );
+      }
+
       if (error.code === "ECONNREFUSED") {
         throw new HardhatError(
           ERRORS.NETWORK.NODE_IS_NOT_RUNNING,
